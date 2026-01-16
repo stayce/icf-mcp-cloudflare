@@ -1,0 +1,36 @@
+# Cloudflare Workers configuration for ICF MCP Server
+# WHO ICF (International Classification of Functioning, Disability and Health)
+# By 4boots.us
+
+name = "icf-mcp-server"
+main = "src/index.ts"
+compatibility_date = "2025-01-13"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable Objects for MCP state management
+[durable_objects]
+bindings = [
+  { name = "MCP_OBJECT", class_name = "MyMCP" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MyMCP"]
+
+# Environment variables
+# Set secrets via: wrangler secret put WHO_CLIENT_ID
+#                  wrangler secret put WHO_CLIENT_SECRET
+[vars]
+WHO_API_RELEASE = "2025-01"
+WHO_API_LANGUAGE = "en"
+
+# Development environment
+[env.dev]
+name = "icf-mcp-server-dev"
+
+# Production environment with custom domain
+[env.production]
+name = "icf-mcp-server"
+routes = [
+  { pattern = "icf.mcp.4boots.us", custom_domain = true }
+]

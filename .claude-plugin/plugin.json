@@ -1,0 +1,61 @@
+{
+  "name": "ICF Classification",
+  "description": "Access WHO ICF (International Classification of Functioning, Disability and Health) codes. ICF complements ICD diagnosis codes by describing how health conditions affect a person's functioning in daily life - covering body functions, body structures, activities/participation, and environmental factors.",
+  "version": "1.0.0",
+  "author": {
+    "name": "4boots.us",
+    "url": "https://4boots.us"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stayce/icf-mcp-cloudflare"
+  },
+  "mcp": {
+    "type": "remote",
+    "transport": "streamable-http",
+    "url": "https://icf.mcp.4boots.us/mcp"
+  },
+  "categories": [
+    "Healthcare",
+    "Life Sciences",
+    "Medical Coding"
+  ],
+  "tools": [
+    {
+      "name": "icf_lookup",
+      "description": "Look up an ICF code and get its full details"
+    },
+    {
+      "name": "icf_search", 
+      "description": "Search the ICF classification by keywords"
+    },
+    {
+      "name": "icf_browse_category",
+      "description": "Browse ICF categories (b, s, d, e)"
+    },
+    {
+      "name": "icf_get_children",
+      "description": "Get child codes under a parent ICF code"
+    },
+    {
+      "name": "icf_explain_qualifier",
+      "description": "Explain ICF qualifier severity ratings"
+    },
+    {
+      "name": "icf_overview",
+      "description": "Get an overview of the ICF classification system"
+    }
+  ],
+  "keywords": [
+    "icf",
+    "who",
+    "healthcare",
+    "disability",
+    "functioning",
+    "rehabilitation",
+    "medical coding",
+    "icd",
+    "classification"
+  ],
+  "license": "MIT"
+}
