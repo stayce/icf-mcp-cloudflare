@@ -274,6 +274,13 @@ export class WHOICFClient {
   }
 
   /**
+   * Make a raw API request (for the api escape valve)
+   */
+  async rawRequest(path: string): Promise<unknown> {
+    return this.apiRequest(path);
+  }
+
+  /**
    * Parse API response into an ICFEntity
    */
   private parseEntity(data: Record<string, unknown>): ICFEntity {
