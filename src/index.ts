@@ -1,16 +1,14 @@
 /**
  * ICF MCP Server - Cloudflare Workers Entry Point
- * 
+ *
  * A Model Context Protocol (MCP) server that provides tools for accessing
  * the WHO ICF (International Classification of Functioning, Disability and Health)
  * classification system.
- * 
+ *
  * Deployed on Cloudflare Workers for global edge availability.
- * 
- * By 4boots.us - Complementing Anthropic's ICD-10 connector with functional health classifications.
  */
 
-import { McpAgent } from "agents/mcp";
+import { createMcpHandler } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { WHOICFClient } from "./who-client";
@@ -22,7 +20,6 @@ export interface Env {
   WHO_CLIENT_SECRET: string;
   WHO_API_RELEASE?: string;
   WHO_API_LANGUAGE?: string;
-  MCP_OBJECT: DurableObjectNamespace;
 }
 
 // Server metadata
@@ -30,140 +27,83 @@ const SERVER_NAME = "icf-mcp-server";
 const SERVER_VERSION = "1.0.0";
 
 /**
- * ICF MCP Server - Durable Object class for Cloudflare Workers
+ * Create MCP server with tools configured for the given environment
  */
-export class MyMCP extends McpAgent<Env> {
-  server = new McpServer({
+function createServer(env: Env) {
+  const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
   });
 
-  #client: WHOICFClient | null = null;
+  // Create WHO client
+  const client = new WHOICFClient({
+    clientId: env.WHO_CLIENT_ID,
+    clientSecret: env.WHO_CLIENT_SECRET,
+    release: env.WHO_API_RELEASE || "2025-01",
+    language: env.WHO_API_LANGUAGE || "en",
+  });
 
-  /**
-   * Get or create the WHO ICF client
-   */
-  private getClient(): WHOICFClient | null {
-    if (!this.#client && this.env.WHO_CLIENT_ID && this.env.WHO_CLIENT_SECRET) {
-      this.#client = new WHOICFClient({
-        clientId: this.env.WHO_CLIENT_ID,
-        clientSecret: this.env.WHO_CLIENT_SECRET,
-        release: this.env.WHO_API_RELEASE || "2025-01",
-        language: this.env.WHO_API_LANGUAGE || "en",
-      });
+  // Register tools with client bound
+  server.tool(
+    "icf_lookup",
+    {
+      code: z.string().describe('The ICF code to look up (e.g., "b280", "d450")'),
+    },
+    async ({ code }) => {
+      return handleToolCall("icf_lookup", { code }, client);
     }
-    return this.#client;
-  }
+  );
 
-  /**
-   * Initialize MCP tools
-   */
-  async init() {
-    // Tool: Look up an ICF code
-    this.server.tool(
-      "icf_lookup",
-      {
-        code: z.string().describe('The ICF code to look up (e.g., "b280", "d450")'),
-      },
-      async ({ code }) => {
-        const client = this.getClient();
-        if (!client) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: "Error: WHO ICD-API credentials not configured. Register at https://icd.who.int/icdapi",
-            }],
-            isError: true,
-          };
-        }
-        return handleToolCall("icf_lookup", { code }, client);
-      }
-    );
+  server.tool(
+    "icf_search",
+    {
+      query: z.string().describe('Search terms (e.g., "walking difficulty", "memory problems")'),
+      max_results: z.number().optional().describe("Maximum results to return (default 10)"),
+    },
+    async ({ query, max_results }) => {
+      return handleToolCall("icf_search", { query, max_results: max_results || 10 }, client);
+    }
+  );
 
-    // Tool: Search ICF by keywords
-    this.server.tool(
-      "icf_search",
-      {
-        query: z.string().describe('Search terms (e.g., "walking difficulty", "memory problems")'),
-        max_results: z.number().optional().describe("Maximum results to return (default 10)"),
-      },
-      async ({ query, max_results }) => {
-        const client = this.getClient();
-        if (!client) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: "Error: WHO ICD-API credentials not configured. Register at https://icd.who.int/icdapi",
-            }],
-            isError: true,
-          };
-        }
-        return handleToolCall("icf_search", { query, max_results: max_results || 10 }, client);
-      }
-    );
+  server.tool(
+    "icf_browse_category",
+    {
+      category: z.string().describe("Category code: b (Body Functions), s (Body Structures), d (Activities/Participation), e (Environmental Factors)"),
+    },
+    async ({ category }) => {
+      return handleToolCall("icf_browse_category", { category }, client);
+    }
+  );
 
-    // Tool: Browse ICF category
-    this.server.tool(
-      "icf_browse_category",
-      {
-        category: z.string().describe("Category code: b (Body Functions), s (Body Structures), d (Activities/Participation), e (Environmental Factors)"),
-      },
-      async ({ category }) => {
-        const client = this.getClient();
-        if (!client) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: "Error: WHO ICD-API credentials not configured. Register at https://icd.who.int/icdapi",
-            }],
-            isError: true,
-          };
-        }
-        return handleToolCall("icf_browse_category", { category }, client);
-      }
-    );
+  server.tool(
+    "icf_get_children",
+    {
+      code: z.string().describe("Parent ICF code to get children for"),
+    },
+    async ({ code }) => {
+      return handleToolCall("icf_get_children", { code }, client);
+    }
+  );
 
-    // Tool: Get child codes
-    this.server.tool(
-      "icf_get_children",
-      {
-        code: z.string().describe("Parent ICF code to get children for"),
-      },
-      async ({ code }) => {
-        const client = this.getClient();
-        if (!client) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: "Error: WHO ICD-API credentials not configured. Register at https://icd.who.int/icdapi",
-            }],
-            isError: true,
-          };
-        }
-        return handleToolCall("icf_get_children", { code }, client);
-      }
-    );
+  server.tool(
+    "icf_explain_qualifier",
+    {
+      qualifier: z.number().describe("Qualifier value (0-4, 8, or 9)"),
+    },
+    async ({ qualifier }) => {
+      return handleToolCall("icf_explain_qualifier", { qualifier }, client);
+    }
+  );
 
-    // Tool: Explain qualifier
-    this.server.tool(
-      "icf_explain_qualifier",
-      {
-        qualifier: z.number().describe("Qualifier value (0-4, 8, or 9)"),
-      },
-      async ({ qualifier }) => {
-        return handleToolCall("icf_explain_qualifier", { qualifier }, null as any);
-      }
-    );
+  server.tool(
+    "icf_overview",
+    {},
+    async () => {
+      return handleToolCall("icf_overview", {}, client);
+    }
+  );
 
-    // Tool: ICF overview
-    this.server.tool(
-      "icf_overview",
-      {},
-      async () => {
-        return handleToolCall("icf_overview", {}, null as any);
-      }
-    );
-  }
+  return server;
 }
 
 /**
@@ -181,10 +121,8 @@ export default {
           server: SERVER_NAME,
           version: SERVER_VERSION,
           description: "WHO ICF (International Classification of Functioning) MCP Server",
-          provider: "4boots.us",
           endpoints: {
             mcp: "/mcp",
-            sse: "/sse",
             health: "/health",
           },
           documentation: "https://www.who.int/standards/classifications/international-classification-of-functioning-disability-and-health",
@@ -198,9 +136,13 @@ export default {
       );
     }
 
-    // MCP endpoints are handled by the McpAgent via Durable Objects
-    // Routes /mcp and /sse are handled automatically by the agents library
-    
+    // MCP endpoint - streamable HTTP transport
+    if (url.pathname === "/mcp") {
+      const server = createServer(env);
+      const handler = createMcpHandler(server);
+      return handler(request, env, ctx);
+    }
+
     return new Response("Not Found", { status: 404 });
   },
 };

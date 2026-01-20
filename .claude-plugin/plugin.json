@@ -13,7 +13,7 @@
   "mcp": {
     "type": "remote",
     "transport": "streamable-http",
-    "url": "https://icf.mcp.4boots.us/mcp"
+    "url": "https://icf-mcp-server.staycek.workers.dev/mcp"
   },
   "categories": [
     "Healthcare",

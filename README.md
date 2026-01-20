@@ -2,6 +2,8 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for the WHO International Classification of Functioning, Disability and Health (ICF), deployed on Cloudflare Workers for global edge availability.
 
+**Live URL:** `https://icf-mcp-server.staycek.workers.dev/mcp`
+
 ## What is ICF?
 
 The ICF is a WHO classification that complements ICD (diagnosis codes) by describing how health conditions affect a person's functioning in daily life:
@@ -72,14 +74,26 @@ wrangler deploy --env production
 
 ## Usage with Claude
 
-Once deployed, add to your Claude Desktop config:
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
     "icf": {
-      "type": "remote",
-      "transport": "streamable-http",
+      "type": "url",
+      "url": "https://icf-mcp-server.staycek.workers.dev/mcp"
+    }
+  }
+}
+```
+
+Or if deploying your own:
+
+```json
+{
+  "mcpServers": {
+    "icf": {
+      "type": "url",
       "url": "https://your-worker.workers.dev/mcp"
     }
   }
@@ -89,8 +103,7 @@ Once deployed, add to your Claude Desktop config:
 ## Endpoints
 
 - `/` or `/health` - Health check / server info
-- `/mcp` - MCP protocol endpoint
-- `/sse` - Server-sent events endpoint
+- `/mcp` - MCP protocol endpoint (streamable HTTP)
 
 ## API Reference
 
