@@ -1,31 +1,18 @@
 {
-  "name": "ICF Classification",
+  "name": "icf-classification",
   "description": "Access WHO ICF (International Classification of Functioning, Disability and Health) codes. ICF complements ICD diagnosis codes by describing how health conditions affect a person's functioning in daily life - covering body functions, body structures, activities/participation, and environmental factors.",
   "version": "1.0.0",
   "author": {
     "name": "@stayce",
     "url": "https://github.com/stayce"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/stayce/icf-mcp-cloudflare"
-  },
-  "mcp": {
-    "type": "remote",
-    "transport": "streamable-http",
-    "url": "https://icf-mcp-server.staycek.workers.dev/mcp"
-  },
-  "categories": [
-    "Healthcare",
-    "Life Sciences",
-    "Medical Coding"
-  ],
-  "tools": [
-    {
-      "name": "icf",
-      "description": "Access WHO ICF classification with actions: lookup, search, browse, children, qualifier, overview, api, help"
+  "repository": "https://github.com/stayce/icf-mcp-cloudflare",
+  "mcpServers": {
+    "icf": {
+      "type": "http",
+      "url": "https://icf-mcp-server.staycek.workers.dev/mcp"
     }
-  ],
+  },
   "keywords": [
     "icf",
     "who",
@@ -33,8 +20,7 @@
     "disability",
     "functioning",
     "rehabilitation",
-    "medical coding",
-    "icd",
+    "medical-coding",
     "classification"
   ],
   "license": "MIT"
