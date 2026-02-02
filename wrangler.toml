@@ -25,6 +25,7 @@ name = "icf-mcp-server-dev"
 # Production environment with custom domain
 [env.production]
 name = "icf-mcp-server"
+vars = { WHO_API_RELEASE = "2025-01", WHO_API_LANGUAGE = "en" }
 routes = [
-  { pattern = "icf.mcp.4boots.us", custom_domain = true }
+  { pattern = "mcp-icf.medseal.app", custom_domain = true }
 ]

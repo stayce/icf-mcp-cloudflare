@@ -2,7 +2,7 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for the WHO International Classification of Functioning, Disability and Health (ICF), deployed on Cloudflare Workers for global edge availability.
 
-**Live URL:** `https://icf-mcp-server.staycek.workers.dev/mcp`
+**Live URL:** `https://mcp-icf.medseal.app/mcp`
 
 ## What is ICF?
 
@@ -81,7 +81,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "icf": {
       "type": "url",
-      "url": "https://icf-mcp-server.staycek.workers.dev/mcp"
+      "url": "https://mcp-icf.medseal.app/mcp"
     }
   }
 }
