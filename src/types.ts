@@ -14,6 +14,7 @@ export interface Env {
   WHO_CLIENT_SECRET: string;
   WHO_API_RELEASE?: string;
   WHO_API_LANGUAGE?: string;
+  MCP_AUTH_SECRET?: string;
 }
 
 // MCP Tool result type

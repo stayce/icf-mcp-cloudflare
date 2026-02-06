@@ -9,6 +9,11 @@
 const TOKEN_ENDPOINT = "https://icdaccessmanagement.who.int/connect/token";
 const API_BASE_URL = "https://id.who.int";
 const ICF_LINEARIZATION = "icf";
+const CACHE_TTL_SECONDS = {
+  lookup: 7 * 24 * 60 * 60, // 7 days
+  search: 60 * 60, // 1 hour
+  root: 7 * 24 * 60 * 60, // 7 days
+};
 
 export interface ICFEntity {
   code: string;
@@ -91,13 +96,29 @@ export class WHOICFClient {
   /**
    * Make an authenticated API request
    */
-  private async apiRequest<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+  private async apiRequest<T>(
+    endpoint: string,
+    params?: Record<string, string>,
+    cacheTtlSeconds?: number
+  ): Promise<T> {
     const token = await this.ensureToken();
     
     let url = `${API_BASE_URL}${endpoint}`;
     if (params) {
       const searchParams = new URLSearchParams(params);
       url += `?${searchParams.toString()}`;
+    }
+
+    const cache = typeof caches !== "undefined" ? caches.default : undefined;
+    const cacheKey = cache && cacheTtlSeconds
+      ? new Request(this.buildCacheKey(url), { method: "GET" })
+      : undefined;
+
+    if (cache && cacheKey) {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        return cached.json() as Promise<T>;
+      }
     }
 
     const response = await fetch(url, {
@@ -112,7 +133,7 @@ export class WHOICFClient {
     if (response.status === 401) {
       // Token expired, re-authenticate and retry
       this.accessToken = null;
-      return this.apiRequest(endpoint, params);
+      return this.apiRequest(endpoint, params, cacheTtlSeconds);
     }
 
     if (!response.ok) {
@@ -120,14 +141,34 @@ export class WHOICFClient {
       throw new Error(`API request failed: ${response.status} - ${text}`);
     }
 
-    return response.json() as Promise<T>;
+    const cloned = response.clone();
+    const data = (await response.json()) as T;
+
+    if (cache && cacheKey && cacheTtlSeconds) {
+      const cacheResponse = new Response(cloned.body, cloned);
+      cacheResponse.headers.set("Cache-Control", `public, max-age=${cacheTtlSeconds}`);
+      await cache.put(cacheKey, cacheResponse);
+    }
+
+    return data;
+  }
+
+  private buildCacheKey(url: string): string {
+    const cacheUrl = new URL(url);
+    cacheUrl.searchParams.set("__lang", this.language);
+    cacheUrl.searchParams.set("__api", "v2");
+    return cacheUrl.toString();
   }
 
   /**
    * Get the root of the ICF classification
    */
   async getICFRoot(): Promise<Record<string, unknown>> {
-    return this.apiRequest(`/icd/release/11/${this.release}/${ICF_LINEARIZATION}`);
+    return this.apiRequest(
+      `/icd/release/11/${this.release}/${ICF_LINEARIZATION}`,
+      undefined,
+      CACHE_TTL_SECONDS.root
+    );
   }
 
   /**
@@ -138,7 +179,11 @@ export class WHOICFClient {
     const codeinfoEndpoint = `/icd/release/11/${this.release}/${ICF_LINEARIZATION}/codeinfo/${code}`;
 
     try {
-      const codeinfo = await this.apiRequest<{ stemId?: string }>(codeinfoEndpoint);
+      const codeinfo = await this.apiRequest<{ stemId?: string }>(
+        codeinfoEndpoint,
+        undefined,
+        CACHE_TTL_SECONDS.lookup
+      );
       if (!codeinfo.stemId) {
         console.warn(`No stemId found for ICF code ${code}`);
         return null;
@@ -165,7 +210,11 @@ export class WHOICFClient {
     const endpoint = cleanUri.replace(API_BASE_URL, "");
     
     try {
-      const data = await this.apiRequest<Record<string, unknown>>(endpoint);
+      const data = await this.apiRequest<Record<string, unknown>>(
+        endpoint,
+        undefined,
+        CACHE_TTL_SECONDS.lookup
+      );
       return this.parseEntity(data);
     } catch (error) {
       console.warn(`Failed to get ICF entity by URI ${uri}:`, error);
@@ -190,7 +239,7 @@ export class WHOICFClient {
       title?: string;
       score?: number;
       id?: string;
-    }> }>(endpoint, params);
+    }> }>(endpoint, params, CACHE_TTL_SECONDS.search);
 
     const results: ICFSearchResult[] = [];
     const entities = data.destinationEntities || [];
