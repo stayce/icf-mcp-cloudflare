@@ -13,16 +13,59 @@ The ICF is a WHO classification that complements ICD (diagnosis codes) by descri
 - **Activities and Participation (d)** - Task execution and life involvement
 - **Environmental Factors (e)** - Physical, social, and attitudinal environment
 
-## Tools
+## Tool
 
-| Tool | Description |
-|------|-------------|
-| `icf_lookup` | Look up a specific ICF code (e.g., `b280`, `d450`) |
-| `icf_search` | Search by keyword (e.g., "walking difficulty", "pain") |
-| `icf_browse_category` | Browse top-level categories: `b`, `s`, `d`, `e` |
-| `icf_get_children` | Get subcategories of a code |
-| `icf_explain_qualifier` | Explain severity ratings (0-4, 8, 9) |
-| `icf_overview` | Full ICF classification overview |
+A single `icf` tool with action dispatch (token-efficient). 19 actions:
+
+### Codes & Hierarchy
+
+| Action | Description |
+|--------|-------------|
+| `lookup` | Look up a specific ICF code (e.g., `b280`, `d450`) |
+| `search` | Search by keyword (e.g., "walking difficulty", "pain") |
+| `browse` | Browse a category (`b`, `s`, `d`, `e`) or sub-chapter (`b1`, `d4`, `e3`) |
+| `children` | Get subcategories of a code |
+| `parent` | Navigate up to a code's parent category |
+| `siblings` | Codes at the same level (same parent) |
+| `chain` | Full hierarchy path from root to a code |
+| `profile` | Build a functional profile from multiple codes |
+
+### Qualifiers
+
+| Action | Description |
+|--------|-------------|
+| `qualifier` | Component-specific qualifier reference (`b`=1, `s`=3, `d`=2, `e`=barrier/facilitator) |
+| `validate` | Validate code format + qualifiers, verify existence in the WHO API |
+| `parse` | Parse fully qualified codes (`d450.23`, `s730.312`, `e120+3`) |
+
+### Clinical Assessment Instruments
+
+11 standardized RPM instruments with items, scoring, and ICF mappings:
+GAD-7, PHQ-9, RADAI-5, SLEDAI-2K, WHODAS 2.0, HAQ-DI, PROMIS-10, CAT, ODI, NRS Pain, Short FES-I.
+
+| Action | Description |
+|--------|-------------|
+| `instruments` | List instruments, optionally filtered by domain |
+| `instrument` | Full spec: items, response options, scoring, ICF mappings |
+| `score` | Score responses → severity, interpretation, ICF qualifier |
+| `suggest` | Suggest instruments for a condition, ICF code, or domain |
+| `mapping` | Show an instrument's ICF code mappings |
+
+### Meta
+
+| Action | Description |
+|--------|-------------|
+| `overview` | Full ICF classification overview |
+| `api` | Raw WHO API request (escape valve) |
+| `help` | Action reference with examples |
+
+Example call:
+
+```json
+{"action": "score", "name": "GAD-7", "responses": [1, 2, 1, 0, 1, 2, 1]}
+```
+
+Instrument and qualifier actions are pure logic and work without WHO API credentials; code/hierarchy actions require them.
 
 ## Prerequisites
 
@@ -60,6 +103,14 @@ npm run dev
 ```
 
 The server will be available at `http://localhost:8787`.
+
+## Testing
+
+```bash
+npm test
+```
+
+Regression tests cover instrument scoring (all 11 instruments) and qualifier parsing — pure logic, no WHO API credentials needed.
 
 ## Deployment
 

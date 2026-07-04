@@ -6,11 +6,6 @@ main = "src/index.ts"
 compatibility_date = "2025-01-13"
 compatibility_flags = ["nodejs_compat"]
 
-# Migration to remove old Durable Object
-[[migrations]]
-tag = "v2"
-deleted_classes = ["MyMCP"]
-
 # Environment variables
 # Set secrets via: wrangler secret put WHO_CLIENT_ID
 #                  wrangler secret put WHO_CLIENT_SECRET

@@ -1,7 +1,7 @@
 {
   "name": "icf-classification",
   "description": "Access WHO ICF (International Classification of Functioning, Disability and Health) codes. ICF complements ICD diagnosis codes by describing how health conditions affect a person's functioning in daily life - covering body functions, body structures, activities/participation, and environmental factors.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "@stayce",
     "url": "https://github.com/stayce"

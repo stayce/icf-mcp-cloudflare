@@ -9,7 +9,7 @@ import { createMcpHandler } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WHOICFClient } from "./who-client";
 import { handleAction } from "./handlers";
-import { Env, SERVER_NAME, SERVER_VERSION, ICFParams } from "./types";
+import { Env, SERVER_NAME, SERVER_VERSION, ICFParams, ICF_ACTIONS } from "./types";
 
 /**
  * Create MCP server with single tool configured for the given environment
@@ -27,16 +27,23 @@ function createServer(env: Env) {
     language: env.WHO_API_LANGUAGE || "en",
   });
 
+  // Actions that hit the WHO ICD-API (instruments/qualifier actions are pure logic)
+  const API_ACTIONS = new Set([
+    "lookup", "search", "browse", "children", "parent", "siblings",
+    "chain", "profile", "validate", "parse", "api",
+  ]);
+
   // Single tool with action dispatch - much more token efficient
   server.tool("icf", ICFParams.shape, async (args) => {
-    if (!env.WHO_CLIENT_ID || !env.WHO_CLIENT_SECRET) {
+    const params = ICFParams.parse(args);
+
+    if (API_ACTIONS.has(params.action) && (!env.WHO_CLIENT_ID || !env.WHO_CLIENT_SECRET)) {
       return {
         content: [{ type: "text" as const, text: "Error: WHO API credentials not configured" }],
         isError: true,
       };
     }
 
-    const params = ICFParams.parse(args);
     return handleAction(params, client);
   });
 
@@ -59,7 +66,7 @@ function healthResponse(): Response {
       },
       tool: {
         name: "icf",
-        actions: ["lookup", "search", "browse", "children", "qualifier", "overview", "api", "help"],
+        actions: ICF_ACTIONS,
       },
       documentation: "https://www.who.int/standards/classifications/international-classification-of-functioning-disability-and-health",
     }),

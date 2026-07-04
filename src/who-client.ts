@@ -265,19 +265,80 @@ export class WHOICFClient {
       return [];
     }
 
-    const children: ICFEntity[] = [];
-    for (const childUri of entity.children) {
-      const child = await this.getEntityByUri(childUri);
-      if (child) {
-        children.push(child);
-      }
-    }
-
-    return children;
+    return this.fetchEntities(entity.children);
   }
 
   /**
-   * Browse a top-level ICF category
+   * Fetch multiple entities by URI concurrently, dropping failures
+   */
+  private async fetchEntities(uris: string[]): Promise<ICFEntity[]> {
+    const fetched = await Promise.all(uris.map((uri) => this.getEntityByUri(uri)));
+    return fetched.filter((e): e is ICFEntity => e !== null);
+  }
+
+  /**
+   * Get an ICF entity and its parent.
+   * Returns [entity, parent] — either may be null.
+   */
+  async getParent(code: string): Promise<[ICFEntity | null, ICFEntity | null]> {
+    const entity = await this.getEntityByCode(code);
+    if (!entity || !entity.parent) {
+      return [entity, null];
+    }
+
+    const parent = await this.getEntityByUri(entity.parent);
+    return [entity, parent];
+  }
+
+  /**
+   * Get sibling entities of an ICF code (other children of the same parent).
+   * Returns [entity, siblings] — entity may be null.
+   */
+  async getSiblings(code: string): Promise<[ICFEntity | null, ICFEntity[]]> {
+    const entity = await this.getEntityByCode(code);
+    if (!entity || !entity.parent) {
+      return [entity, []];
+    }
+
+    const parent = await this.getEntityByUri(entity.parent);
+    if (!parent || !parent.children) {
+      return [entity, []];
+    }
+
+    const siblingUris = parent.children.filter((uri) => uri !== entity.uri);
+    const fetched = await this.fetchEntities(siblingUris);
+    return [entity, fetched.filter((s) => s.code !== entity.code)];
+  }
+
+  /**
+   * Get the full hierarchy chain from root down to a specific code.
+   * Returns entities ordered root-first; empty if the code is not found.
+   */
+  async getCodeChain(code: string): Promise<ICFEntity[]> {
+    const entity = await this.getEntityByCode(code);
+    if (!entity) {
+      return [];
+    }
+
+    const chain: ICFEntity[] = [entity];
+    let current = entity;
+    let maxDepth = 10; // Safety limit to prevent infinite loops
+
+    while (current.parent && maxDepth > 0) {
+      const parent = await this.getEntityByUri(current.parent);
+      if (!parent) break;
+      chain.push(parent);
+      current = parent;
+      maxDepth--;
+    }
+
+    chain.reverse(); // Root first
+    return chain;
+  }
+
+  /**
+   * Browse an ICF category or sub-chapter.
+   * Accepts top-level components (b, s, d, e) or sub-chapters (b1, d4, e3, etc.).
    */
   async browseCategory(category: string): Promise<{
     category: string;
@@ -292,13 +353,48 @@ export class WHOICFClient {
       e: "Environmental Factors",
     };
 
-    const cat = category.toLowerCase();
+    const cat = category.trim().toLowerCase();
+
+    // Check if this is a sub-chapter (e.g., "b1", "d4", "e3")
+    const subMatch = cat.match(/^([bsde])(\d{1,3})$/);
+
+    if (subMatch) {
+      // Sub-chapter browsing — use entity lookup + children
+      const componentName = categoryMap[subMatch[1]];
+
+      const entity = await this.getEntityByCode(cat);
+      if (!entity) {
+        throw new Error(
+          `Sub-chapter '${cat}' not found in the WHO API. ` +
+          `Try a top-level category (${Object.keys(categoryMap).join(", ")}) ` +
+          `or a valid sub-chapter code.`
+        );
+      }
+
+      const children = entity.children ? await this.fetchEntities(entity.children) : [];
+
+      return {
+        category: cat,
+        name: `${entity.title} (${componentName})`,
+        description: entity.definition || `Sub-chapter ${cat} under ${componentName}.`,
+        results: children.map((c) => ({
+          code: c.code,
+          title: c.title,
+          score: 0,
+          uri: c.uri || "",
+        })),
+      };
+    }
+
     if (!(cat in categoryMap)) {
       throw new Error(
-        `Invalid category '${category}'. Must be one of: ${Object.keys(categoryMap).join(", ")}`
+        `Invalid category '${category}'. ` +
+        `Use a component letter (${Object.keys(categoryMap).join(", ")}) ` +
+        `or a sub-chapter code (e.g., b1, d4, e3).`
       );
     }
 
+    // Top-level category browsing — use search
     const results = await this.search(categoryMap[cat], 20);
 
     return {
